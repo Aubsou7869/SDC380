@@ -1,0 +1,92 @@
+AubSou7869 October 27, 2026  Stroke Prediction Visualizations
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+
+# Save the original dataset in the same folder as this notebook.
+# Update the filename here if it differs from your downloaded file.
+path = Path('Stroke_Prediction_Dataset.xlsx')
+if not path.exists():
+    path = Path('Stroke_Prediction.xlsx')
+if not path.exists():
+    raise FileNotFoundError('Put Stroke_Prediction_Dataset.xlsx beside this notebook, or update path above.')
+
+df = pd.read_excel(path)
+print('Dataset shape:', df.shape)
+print('Original columns:', df.columns.tolist())
+display(df.head())
+
+
+# Match common column spelling variations in stroke datasets.
+def find_column(aliases):
+    normalized = {''.join(c.lower() for c in str(col) if c.isalnum()): col for col in df.columns}
+    for alias in aliases:
+        key = ''.join(c.lower() for c in alias if c.isalnum())
+        if key in normalized:
+            return normalized[key]
+    raise KeyError(f'Cannot find any of {aliases}. Available columns: {list(df.columns)}')
+
+age = find_column(['age'])
+bmi = find_column(['bmi', 'Body Mass Index (BMI)', 'Body Mass Index'])
+glucose = find_column(['avg_glucose_level', 'Average Glucose Level', 'average_glucose_level'])
+work = find_column(['work_type', 'Work Type'])
+stroke = find_column(['Diagnose'])
+for name in [age, bmi, glucose]:
+    df[name] = pd.to_numeric(df[name], errors='coerce')
+stroke_flag = df[stroke].astype(str).str.strip().str.lower().isin(['1', '1.0', 'yes', 'true', 'stroke'])
+stroke_df = df[stroke_flag].copy()
+print('All patients:', len(df))
+print('Patients diagnosed with stroke:', len(stroke_df))
+
+
+# Histogram — age distribution for all patients
+plt.figure(figsize=(8, 5))
+sns.histplot(df[age].dropna(), bins=10, color='steelblue', edgecolor='white')
+plt.title('Age Distribution of Patients — AubSou7869')
+plt.xlabel('Age (years)')
+plt.ylabel('Number of Patients')
+plt.tight_layout()
+plt.show()
+
+
+# Work types among patients diagnosed with stroke
+counts = stroke_df[work].value_counts()
+plt.figure(figsize=(9, 5))
+ax = sns.barplot(x=counts.index, y=counts.values, color='cornflowerblue')
+plt.title('Work Types Among Stroke Patients — AubSou7869')
+plt.xlabel('Work Type')
+plt.ylabel('Number of Stroke Patients')
+plt.xticks(rotation=20, ha='right')
+for i, value in enumerate(counts.values):
+    ax.text(i, value, str(value), ha='center', va='bottom')
+plt.tight_layout()
+plt.show()
+print(counts)
+
+
+
+# Age vs BMI among patients diagnosed with stroke
+plt.figure(figsize=(8, 5))
+sns.scatterplot(data=stroke_df, x=age, y=bmi, alpha=0.45, s=22)
+plt.title('Age vs BMI for Stroke Patients — AubSou7869')
+plt.xlabel('Age (years)')
+plt.ylabel('Body Mass Index (BMI)')
+plt.tight_layout()
+plt.show()
+print('Age–BMI correlation among stroke patients:', round(stroke_df[[age, bmi]].corr().iloc[0, 1], 3))
+
+
+
+# Heatmap — numerical variables for all patients
+numeric = df[[age, bmi, glucose]].rename(columns={age:'Age', bmi:'BMI', glucose:'Average Glucose Level'})
+correlations = numeric.corr()
+plt.figure(figsize=(8, 6))
+sns.heatmap(correlations, annot=True, fmt='.2f', cmap='coolwarm', center=0, vmin=-1, vmax=1, square=True)
+plt.title('Correlation Heatmap — AubSou7869')
+plt.tight_layout()
+plt.show()
+print('Correlation matrix:')
+print(correlations.round(3))
